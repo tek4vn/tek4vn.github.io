@@ -11,41 +11,69 @@
     }
     html,
     body {
-      height: 100%;
+      
       padding: 0;
       margin: 0;
       background: #000;
     }
 
     .aa {
-      position: fixed;
+     /* position: fixed;
       left: 50%;
-      bottom: 10px;
-      color: #ccc;
-    }
-    .img {
+      bottom: 10px;*/
+      color: #000;
       position: absolute;
-      left: 50%;
-      top: 50%;
+      top:50%;
+      left:50%;
+      transform: translate(-50%,-50%);
+    }
+    .hearts {
+      position: absolute;
+      left: 40%;
+      top: 40%;
       transform: translate(-50%, -50%);
-      width: 230px;
-      height: 220px;
     }
-    .container {
-      width: 100%;
-      height: 100%;
-    }
+     .particletext {
+   text-align: center;
+   font-size: 15px;
+   position: relative;
+    color: #cd313e;
+}
     canvas {
-      z-index: 99;
+      /*z-index: 99;*/
+      position: absolute;
+      width: 150%;
+      height: 150%;
+    }
+    #pinkboard{
       position: absolute;
       width: 100%;
       height: 100%;
+      animation: heartbeat .85s infinite;
     }
+    @keyframes heartbeat {
+    0%{
+        transform: scale(1.1);
+    }
+    10%{
+        transform: scale(1.25);
+    }
+    50%{
+        transform: scale(1.4);
+    }
+}
   </style>
   <body>
     <div id="jsi-cherry-container" class="container">
       <!-- <img class="img" src="love.png" alt="" /> -->
-      <canvas id="pinkboard" class="container"> </canvas>
+   <span class="particletext hearts">Made with ❤ by TEK4</span>
+
+      <canvas id="pinkboard" class="container"> 
+      
+      </canvas>
+      <canvas id="pinkboard2" class="container"> 
+      
+      </canvas>
     </div>
 
   </body>
@@ -57,17 +85,22 @@
        */
       var settings = {
         particles: {
-          length: 500, // maximum amount of particles
-          duration: 2, // particle duration in sec
-          velocity: 100, // particle velocity in pixels/sec
-          effect: -0.75, // play with this for a nice effect
-          size: 30, // particle size in pixels
+          length: 4500, 
+          duration: 2.5, 
+          velocity: 100, 
+          effect: -0.3, 
+          size: 10, 
         },
+        particles2: {
+          length: 3000, 
+          duration: 10.5, 
+          velocity: 25,
+          effect: -0.25, 
+          size: 15, 
+        }
       };
 
-      /*
-       * RequestAnimationFrame polyfill by Erik M?ller
-       */
+      
       (function () {
         var b = 0;
         var c = ["ms", "moz", "webkit", "o"];
@@ -166,6 +199,47 @@
         return Particle;
       })();
 
+      var Particle2 = (function () {
+        function Particle2() {
+          this.position = new Point();
+          this.velocity = new Point();
+          this.acceleration = new Point();
+          this.age = 0;
+        }
+        Particle2.prototype.initialize = function (x, y, dx, dy) {
+          this.position.x = x;
+          this.position.y = y;
+          this.velocity.x = dx;
+          this.velocity.y = dy;
+          this.acceleration.x = dx * settings.particles2.effect;
+          this.acceleration.y = dy * settings.particles2.effect;
+          this.age = 0;
+        };
+        Particle2.prototype.update = function (deltaTime) {
+          this.position.x += this.velocity.x * deltaTime;
+          this.position.y += this.velocity.y * deltaTime;
+          this.velocity.x += this.acceleration.x * deltaTime;
+          this.velocity.y += this.acceleration.y * deltaTime;
+          this.age += deltaTime;
+        };
+        Particle2.prototype.draw = function (context, image) {
+          function ease(t) {
+            return --t * t * t + 1;
+          }
+          var size = image.width * ease(this.age / settings.particles2.duration);
+          context.globalAlpha = 1 - this.age / settings.particles2.duration;
+          context.drawImage(
+            image,
+            this.position.x - size / 2,
+            this.position.y - size / 2,
+            size,
+            size
+          );
+        };
+        return Particle2;
+      })();
+
+
       /*
        * ParticlePool class
        */
@@ -228,6 +302,65 @@
         return ParticlePool;
       })();
 
+var ParticlePool2 = (function () {
+        var particles,
+          firstActive = 0,
+          firstFree = 0,
+          duration = settings.particles2.duration;
+
+        function ParticlePool2(length) {
+          // create and populate particle pool
+          particles = new Array(length);
+          for (var i = 0; i < particles.length; i++)
+            particles[i] = new Particle2();
+        }
+        ParticlePool2.prototype.add = function (x, y, dx, dy) {
+          particles[firstFree].initialize(x, y, dx, dy);
+
+          // handle circular queue
+          firstFree++;
+          if (firstFree == particles.length) firstFree = 0;
+          if (firstActive == firstFree) firstActive++;
+          if (firstActive == particles.length) firstActive = 0;
+        };
+        ParticlePool2.prototype.update = function (deltaTime) {
+          var i;
+
+          // update active particles
+          if (firstActive < firstFree) {
+            for (i = firstActive; i < firstFree; i++)
+              particles[i].update(deltaTime);
+          }
+          if (firstFree < firstActive) {
+            for (i = firstActive; i < particles.length; i++)
+              particles[i].update(deltaTime);
+            for (i = 0; i < firstFree; i++) particles[i].update(deltaTime);
+          }
+
+          // remove inactive particles
+          while (
+            particles[firstActive].age >= duration &&
+            firstActive != firstFree
+          ) {
+            firstActive++;
+            if (firstActive == particles.length) firstActive = 0;
+          }
+        };
+        ParticlePool2.prototype.draw = function (context, image) {
+          // draw active particles
+          if (firstActive < firstFree) {
+            for (i = firstActive; i < firstFree; i++)
+              particles[i].draw(context, image);
+          }
+          if (firstFree < firstActive) {
+            for (i = firstActive; i < particles.length; i++)
+              particles[i].draw(context, image);
+            for (i = 0; i < firstFree; i++) particles[i].draw(context, image);
+          }
+        };
+        return ParticlePool2;
+      })();
+
       /*
        * Putting it all together
        */
@@ -237,6 +370,11 @@
           particleRate =
             settings.particles.length / settings.particles.duration, // particles/sec
           time;
+          var context2 = canvas.getContext("2d"),
+          particles2 = new ParticlePool2(settings.particles2.length),
+          particleRate2 =
+            settings.particles2.length / settings.particles2.duration, // particles/sec
+          time2;
 
         // get point on heart with -PI <= t <= PI
         function pointOnHeart(t) {
@@ -244,9 +382,8 @@
             160 * Math.pow(Math.sin(t), 3),
             130 * Math.cos(t) -
               50 * Math.cos(2 * t) -
-              20 * Math.cos(3 * t) -
-              10 * Math.cos(4 * t) +
-              25
+              20 * Math.cos(3 * t ) -
+              10 * Math.cos(4 * t) + 25
           );
         }
 
@@ -267,6 +404,16 @@
               (point.y * settings.particles.size) / 350;
             return point;
           }
+          function to2(t) {
+            var point = pointOnHeart(t);
+            point.x =
+              settings.particles2.size / 2 +
+              (point.x * settings.particles2.size) / 350;
+            point.y =
+              settings.particles2.size / 2 -
+              (point.y * settings.particles.size) / 350;
+            return point;
+          }
           // create the path
           context.beginPath();
           var t = -Math.PI;
@@ -279,7 +426,7 @@
           }
           context.closePath();
           // create the fill
-          context.fillStyle = "#ea80b0";
+          context.fillStyle = "#cd313e";
           context.fill();
           // create the image
           var image = new Image();
@@ -289,11 +436,15 @@
 
         // render that thing!
         function render() {
+
           // next animation frame
           requestAnimationFrame(render);
 
+
+          // alert("321");
+
           // update time
-          var newTime = new Date().getTime() / 1000,
+          var newTime = new Date().getTime() / 5000,
             deltaTime = newTime - (time || newTime);
           time = newTime;
 
@@ -313,9 +464,23 @@
             );
           }
 
+          var amount2 = particleRate2 * deltaTime;
+          for (var i = 0; i < amount2; i++) {
+            var pos = pointOnHeart(Math.PI - 2 * Math.PI * Math.random());
+            var dir = pos.clone().length(settings.particles2.velocity);
+            particles2.add(
+              canvas.width / 2 + pos.x,
+              canvas.height / 2 - pos.y,
+              dir.x,
+              -dir.y
+            );
+          }
+
           // update and draw particles
           particles.update(deltaTime);
           particles.draw(context, image);
+          particles2.update(deltaTime);
+          particles2.draw(context, image);
         }
 
         // handle (re-)sizing of the canvas
@@ -331,6 +496,100 @@
           render();
         }, 10);
       })(document.getElementById("pinkboard"));
+
+
+      (function (canvas) {
+        var context = canvas.getContext("2d"),
+          particles = new ParticlePool(settings.particles.length),
+          particleRate =
+            settings.particles.length / settings.particles.duration, // particles/sec
+          time;
+          var context2 = canvas.getContext("2d"),
+          particles2 = new ParticlePool2(settings.particles2.length),
+          particleRate2 =
+            settings.particles2.length / settings.particles2.duration, // particles/sec
+          time2;
+
+        // get point on heart with -PI <= t <= PI
+        function pointOnHeart(t) {
+          return new Point(
+            160 * Math.pow(Math.sin(t), 3),
+            130 * Math.cos(t) -
+              50 * Math.cos(2 * t) -
+              20 * Math.cos(3 * t) -
+              10 * Math.cos(4 * t) 
+              
+          );
+        }
+
+        // creating the particle image using a dummy canvas
+        var image = (function () {
+          var canvas = document.createElement("canvas"),
+            context = canvas.getContext("2d");
+          canvas.width = settings.particles2.size;
+          canvas.height = settings.particles2.size;
+          // helper function to create the path
+          function to(t) {
+            var point = pointOnHeart(t);
+            point.x =
+              settings.particles2.size / 2 +
+              (point.x * settings.particles2.size) / 350;
+            point.y =
+              settings.particles2.size / 2 -
+              (point.y * settings.particles2.size) / 350;
+            return point;
+          }
+          // create the path
+          context.beginPath();
+          var t = -Math.PI;
+          var point = to(t);
+          context.moveTo(point.x, point.y);
+          while (t < Math.PI) {
+            t += 0.01; // baby steps!
+            point = to(t);
+            context.lineTo(point.x, point.y);
+          }
+          context.closePath();
+          // create the fill
+          context.fillStyle = "#cd313e";
+          context.fill();
+          // create the image
+          var image = new Image();
+          image.src = canvas.toDataURL();
+          return image;
+        })();
+
+        // render that thing!
+        function render() {
+          // next animation frame
+          requestAnimationFrame(render);
+
+          // update time
+          var newTime = new Date().getTime() / 4000,
+            deltaTime = newTime - (time || newTime);
+          time = newTime;
+
+          // clear canvas
+          context.clearRect(0, 0, canvas.width, canvas.height);
+
+          
+          particles2.update(deltaTime);
+          particles2.draw(context, image);
+        }
+
+        // handle (re-)sizing of the canvas
+        function onResize() {
+          canvas.width = canvas.clientWidth;
+          canvas.height = canvas.clientHeight;
+        }
+        window.onresize = onResize;
+
+        // delay rendering bootstrap
+        setTimeout(function () {
+          onResize();
+          render();
+        }, 10);
+      })(document.getElementById("pinkboard2"));
     </script>
 
     <script>
